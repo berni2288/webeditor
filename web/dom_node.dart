@@ -98,6 +98,17 @@ class DomNode
 
 	DomNode getParentNode()
 	{
-		return new DomNode(this.getRawNode().parentNode);
+		Node parentNode = this.getRawNode().parentNode;
+
+		if (parentNode == null) {
+			return null;
+		}
+
+		return new DomNode(parentNode);
+	}
+
+	bool isEqualTo(DomNode domNode)
+	{
+		return this.getRawNode() == domNode.getRawNode();
 	}
 }

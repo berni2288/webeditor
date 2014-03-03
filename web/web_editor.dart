@@ -37,6 +37,9 @@ class WebEditor {
 			case KeyCode.BACKSPACE:
 				handleBackSpace(domNode);
 				break;
+			case KeyCode.P:
+				handleBackSpace(domNode);
+				break;
 			case KeyCode.ENTER:
 				handleEnter(domNode);
 				break;
@@ -96,7 +99,7 @@ class WebEditor {
 			domNode.insertBefore(new DomNode(textNode), endBreak);
 		} else {
 			String newText = lastTextNode.getTextContent() + text;
-    		lastTextNode.setInnerHtml(newText);
+    		lastTextNode.setTextContent(newText);
 		}
 	}
 
@@ -107,10 +110,10 @@ class WebEditor {
 
 		while ((lastDeletableNode = getLastDeletableNode(domNode)) != null) {
 			if (lastDeletableNode.getType() == Node.TEXT_NODE) {
-				if (domNode.getTextContent().isEmpty) {
+				if (lastDeletableNode.getTextContent().isEmpty) {
 					// We found an empty text node, we can delete it,
 					// including all empty parents.
-					deleteEmptyNodeAndAllParents(lastDeletableNode);
+					//deleteEmptyNodeAndAllParents(lastDeletableNode);
 				} else {
 					// Found something to really delete with backspace
 					break;
@@ -143,7 +146,7 @@ class WebEditor {
 		DomNode highestEmptyParentNode = domNode;
 		DomNode parentNode;
 
-		while (parentNode != this.editable) {
+		while (parentNode == null || !this.editable.isEqualTo(parentNode)) {
 			DomNode parentNode = highestEmptyParentNode.getParentNode();
 			if (parentNode == null) {
 				break;
@@ -151,6 +154,8 @@ class WebEditor {
 
 			if (parentNode.getTextContent().isEmpty) {
 				highestEmptyParentNode = parentNode;
+			} else {
+				break;
 			}
 		}
 
@@ -181,15 +186,19 @@ class WebEditor {
 		List<DomNode> childNodes = domNode.getChildNodes();
 		for (var i = childNodes.length - 1; i >= 0; i--) {
 			DomNode childNode = childNodes[i];
+
+			if (childNode.isEqualTo(endBreak)) {
+				continue;
+			}
+
 			if (childNode.getType() == Node.TEXT_NODE) {
-				return [ domNode, false ];
+				return childNode;
 			} else if (atEndOnly
-					&& childNode != endBreak
 					&& deletableElements.contains(childNode.getNodeName())) {
 				// Deletable element found
 				return -1;
 			} else {
-				DomNode lastTextNode = _getLastTextNode(domNode, atEndOnly);
+				DomNode lastTextNode = _getLastTextNode(childNode, atEndOnly);
 
 				if (lastTextNode == -1) {
 					// Deletable element found
@@ -209,12 +218,13 @@ class WebEditor {
 		List<DomNode> childNodes = domNode.getChildNodes();
 		for (var i = childNodes.length - 1; i >= 0; i--) {
 			DomNode childNode = childNodes[i];
-			if (childNode.getType() == Node.TEXT_NODE
+			if ((childNode.getType() == Node.TEXT_NODE
+					&& childNode.getTextContent().isNotEmpty)
 					|| deletableElements.contains(childNode.getNodeName())) {
 
 				// Return the node if it is not an internal element
-				if (childNode.getType() != Node.ELEMENT_NODE || !isInternalElement(childNode.getRawNode()
-						as Element)) {
+				if (childNode.getType() != Node.ELEMENT_NODE
+						|| !isInternalElement(childNode.getRawNode() as Element)) {
 					return childNode;
 				}
 			}
