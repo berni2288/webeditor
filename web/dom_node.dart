@@ -23,7 +23,7 @@ class DomNode
 	{
 		rawNode = node;
 	}
-	
+
 	DomNode getLastChild()
 	{
 		return new DomNode(this.getRawNode().lastChild);
@@ -44,7 +44,7 @@ class DomNode
 		(this.getRawNode() as Element).innerHtml = value;
 	}
 
-	getTextContent()
+	String getTextContent()
 	{
 		return this.getRawNode().text;
 	}
@@ -84,5 +84,20 @@ class DomNode
 	remove()
 	{
 		this.getRawNode().remove();
+	}
+
+	append(DomNode domNode)
+	{
+		this.getRawNode().append(domNode.getRawNode());
+	}
+
+	insertBefore(DomNode newChild, DomNode refChild)
+	{
+		this.getRawNode().insertBefore(newChild.getRawNode(), refChild.getRawNode());
+	}
+
+	DomNode getParentNode()
+	{
+		return new DomNode(this.getRawNode().parentNode);
 	}
 }
