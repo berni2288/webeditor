@@ -37,9 +37,6 @@ class WebEditor {
 			case KeyCode.BACKSPACE:
 				handleBackSpace(domNode);
 				break;
-			case KeyCode.P:
-				handleBackSpace(domNode);
-				break;
 			case KeyCode.ENTER:
 				handleEnter(domNode);
 				break;
