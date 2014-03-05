@@ -12,11 +12,7 @@ class WebEditor {
 	/*
 	 * A list of HTML elements that can be removed by the backspace button
 	 */
-	List deletableElements = [
-		"br",
-		"img",
-		"table"
-	];
+	List deletableElements = ["br", "img", "table"];
 
 	WebEditor(String selector) {
 		Element editableElement = querySelector(selector);
@@ -96,47 +92,89 @@ class WebEditor {
 			domNode.insertBefore(new DomNode(textNode), endBreak);
 		} else {
 			String newText = lastTextNode.getTextContent() + text;
-    		lastTextNode.setTextContent(newText);
+			lastTextNode.setTextContent(newText);
 		}
 	}
 
 	deleteText(DomNode domNode) {
-		// We first have to find something we can delete.
-		// We do that by recursively going through the DOM backwards.
-		DomNode lastDeletableNode;
+		// Create a Treewalker that filters walks elements and text
+		TreeWalker treeWalker = new TreeWalker(domNode.getRawNode(),
+				NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
 
-		while ((lastDeletableNode = getLastDeletableNode(domNode)) != null) {
-			if (lastDeletableNode.getType() == Node.TEXT_NODE) {
-				if (lastDeletableNode.getTextContent().isEmpty) {
-					// We found an empty text node, we can delete it,
-					// including all empty parents.
-					//deleteEmptyNodeAndAllParents(lastDeletableNode);
-				} else {
-					// Found something to really delete with backspace
-					break;
+		Node node                   = treeWalker.lastChild();
+		DomNode currentChildDomNode = node == null ? null : new DomNode(node);
+        		DomNode domNodeToDelete;
+
+		bool visibleCharacterOrElementDeleted = false;
+		bool noMoreThingsToDelete             = false;
+		bool whiteSpaceDeleted                = false;
+
+		while (!visibleCharacterOrElementDeleted && currentChildDomNode != null) {
+			if (!isInternalDomNode(currentChildDomNode)) {
+				if (currentChildDomNode.getType() == Node.ELEMENT_NODE) {
+					if (deletableElements.contains(currentChildDomNode.getNodeName())) {
+						currentChildDomNode.remove();
+						visibleCharacterOrElementDeleted = true;
+					}
+				} else if (currentChildDomNode.getType() == Node.TEXT_NODE) {
+					String textContent = currentChildDomNode.getTextContent();
+					int textContentLength = textContent.length;
+
+					for (int i = textContentLength - 1; i >= 0; i--) {
+						if (isCharacterHtmlWhiteSpace(textContent[i])) {
+							whiteSpaceDeleted = true;
+						} else {
+							visibleCharacterOrElementDeleted = true;
+
+							// Not whitespace
+							if (whiteSpaceDeleted) {
+								// Whitespace has already been deleted, that means we don't have
+								// to delete this character and can cancel the iteration.
+								break;
+							}
+						}
+
+						// Delete one character from the end (will be actually done after the loop)
+						textContentLength--;
+
+						if (visibleCharacterOrElementDeleted) {
+							break;
+						}
+					}
+
+					// If the string would be empty, just deleted the TEXT_NODE
+					if (textContentLength == 0) {
+						// We can't delete it now because then the relation to the previous
+						// node (treewalker) would become invalid, so we delete it afterwards.
+						domNodeToDelete = currentChildDomNode;
+					} else {
+						// Cut the TEXT_NDOE
+						textContent = textContent.substring(0, textContentLength);
+						currentChildDomNode.setTextContent(textContent);
+					}
 				}
-			} else {
-				// Found something to really delete with backspace
-				break;
+			}
+
+			node = treeWalker.previousNode();
+			currentChildDomNode = node == null ? null : new DomNode(node);
+
+			if (domNodeToDelete != null) {
+				domNodeToDelete.remove();
+				domNodeToDelete = null;
 			}
 		}
+	}
 
-		if (lastDeletableNode == null) {
-			return;
+	String getLastCharacter(String string) {
+		if (string.length == 0) {
+			return "";
 		}
 
-		// Found something to really delete with backspace
-		if (lastDeletableNode.getType() == Node.TEXT_NODE) {
-			// Simple text deletion
-			String currentText = lastDeletableNode.getTextContent();
-			String newText     = currentText.substring(
-					0, currentText.length - 1);
+		return string[string.length - 1];
+	}
 
-			lastDeletableNode.setTextContent(newText);
-		} else {
-			// If the node is not a text node, just simply remove it.
-			lastDeletableNode.remove();
-		}
+	bool isCharacterHtmlWhiteSpace(String character) {
+		return (" \t\r\n".indexOf(character) != -1);
 	}
 
 	void deleteEmptyNodeAndAllParents(DomNode domNode) {
@@ -190,8 +228,8 @@ class WebEditor {
 
 			if (childNode.getType() == Node.TEXT_NODE) {
 				return childNode;
-			} else if (atEndOnly
-					&& deletableElements.contains(childNode.getNodeName())) {
+			} else if (atEndOnly && deletableElements.contains(childNode.getNodeName()
+					)) {
 				// Deletable element found
 				return -1;
 			} else {
@@ -199,8 +237,8 @@ class WebEditor {
 
 				if (lastTextNode == -1) {
 					// Deletable element found
-        			return -1;
-        		}
+					return -1;
+				}
 
 				if (lastTextNode != null) {
 					return lastTextNode;
@@ -211,32 +249,13 @@ class WebEditor {
 		return null;
 	}
 
-	DomNode getLastDeletableNode(DomNode domNode) {
-		List<DomNode> childNodes = domNode.getChildNodes();
-		for (var i = childNodes.length - 1; i >= 0; i--) {
-			DomNode childNode = childNodes[i];
-			if ((childNode.getType() == Node.TEXT_NODE
-					&& childNode.getTextContent().isNotEmpty)
-					|| deletableElements.contains(childNode.getNodeName())) {
-
-				// Return the node if it is not an internal element
-				if (childNode.getType() != Node.ELEMENT_NODE
-						|| !isInternalElement(childNode.getRawNode() as Element)) {
-					return childNode;
-				}
-			}
-
-			DomNode lastDeletableChildNode = getLastDeletableNode(childNode);
-			if (lastDeletableChildNode != null) {
-				return lastDeletableChildNode;
-			}
+	bool isInternalDomNode(DomNode domNode) {
+		if (domNode.getType() != Node.ELEMENT_NODE) {
+			return false;
 		}
 
-		return null;
-	}
-
-	bool isInternalElement(Element element) {
-		return element.dataset["webeditor-internal"] == "true";
+		return (domNode.getRawNode() as Element).dataset["webeditor-internal"] ==
+				"true";
 	}
 
 	handleBackSpace(DomNode domNode) {
