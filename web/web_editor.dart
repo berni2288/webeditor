@@ -89,16 +89,53 @@ class WebEditor {
 		}
 	}
 
-	insertText(DomNode domNode, text) {
-		DomNode lastTextNode = getLastTextNode(domNode, true);
+	insertTextAtCursor(String text) {
+		Map cursorPosition = this.cursor.getPosition();
 
-		if (lastTextNode == null) {
-			DomNode textNode = new DomNode(new Text(text));
-			endBreak.insertBefore(textNode);
-		} else {
-			String newText = lastTextNode.getTextContent() + text;
-			lastTextNode.setTextContent(newText);
+		if (cursorPosition == null) {
+			return;
+//			DomNode lastTextNode = getLastTextNode(this.editable, true);
+//
+//			if (lastTextNode == null) {
+//				DomNode textNode = new DomNode(new Text(text));
+//				endBreak.insertBefore(textNode);
+//
+//				// Position the cursor
+//				cursor.setPosition(textNode, textNode.getTextContent().length);
+//			} else {
+//				String newText = lastTextNode.getTextContent() + text;
+//				lastTextNode.setTextContent(newText);
+//
+//				// Position the cursor
+//				cursor.setPosition(lastTextNode, newText.length);
+//			}
 		}
+
+		DomNode textNode = cursorPosition['node'];
+		int offset       = cursorPosition['offset'];
+
+		// Insert text into text node
+		textNode.insertText(text, offset);
+
+		// Move the cursor forward
+		cursor.setPosition(textNode, offset + text.length);
+	}
+
+	insertDomNodeAtCursor(DomNode domNode)
+	{
+		Map cursorPosition = this.cursor.getPosition();
+
+		DomNode textNode = cursorPosition['node'];
+		int offset       = cursorPosition['offset'];
+
+		String currentText = textNode.getTextContent();
+		String preText  = currentText.substring(0, offset);
+		String postText = currentText.substring(offset);
+
+		textNode.setTextContent(preText + currentText + postText);
+
+		// Move the cursor forward
+		cursor.setPosition(textNode, offset + currentText.length);
 	}
 
 	deleteText(DomNode domNode) {
@@ -261,16 +298,18 @@ class WebEditor {
 	}
 
 	handleEnter(DomNode domNode) {
+		Map cursorPosition = this.cursor.getPosition();
+		DomNode textNode = cursorPosition['node'];
+		int offset       = cursorPosition['offset'];
+
 		DomNode newBreak = new DomNode(new Element.br());
-		// Insert a new line break in the editable
-		// domNode before our internal endBreak
-		endBreak.insertBefore(newBreak);
+		textNode.insertNode(newBreak, offset);
 	}
 
 	handleNoneFunctionalButton(DomNode domNode, charCode) {
 		String char = new String.fromCharCode(charCode);
 		if (char.isNotEmpty) {
-			insertText(domNode, char);
+			insertTextAtCursor(char);
 		}
 	}
 }

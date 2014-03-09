@@ -126,6 +126,32 @@ class DomNode
 				nodeToInsert.getRawNode(), this.getRawNode());
 	}
 
+    DomNode insertNode(DomNode domNodeToInsert, int offset)
+    {
+		this.insertAfter(domNodeToInsert);
+
+		String text = this.getTextContent();
+		String preText  = text.substring(0, offset);
+		String postText = text.substring(offset);
+
+		this.setTextContent(preText);
+
+		// We also need a second text node
+		DomNode secondTextNode = new DomNode(new Text(postText));
+		domNodeToInsert.insertAfter(secondTextNode);
+
+		return secondTextNode;
+    }
+
+	insertText(String text, int offset)
+	{
+		String currentText = this.getTextContent();
+		String preText  = currentText.substring(0, offset);
+		String postText = currentText.substring(offset);
+
+		this.setTextContent(preText + text + postText);
+	}
+
 	/*
 	 * Inserts nodeToInsert after this
 	 * this must have a parent.

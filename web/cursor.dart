@@ -5,8 +5,11 @@ class Cursor
 {
 	DomNode cursorDomNode;
 	DomNode editable;
-	DomNode currentSelectedDomNode;
-	DomNode currentSelectedOffset;
+
+	/*
+	 * Contains the properties 'node' and 'offset', can be null.
+	 */
+	Map currentPosition;
 
 
 	Cursor(DomNode editable)
@@ -38,22 +41,29 @@ class Cursor
 
 	Map getPosition()
 	{
-		if (currentSelectedDomNode == null) {
-			return null;
+		return this.currentPosition;
+	}
+
+	setPosition(DomNode domNode, int offset)
+	{
+		if (this.currentPosition == null) {
+			this.currentPosition = new Map();
 		}
 
-		return {
-			'node':   this.currentSelectedDomNode,
-			'offset': this.currentSelectedOffset
-		};
+		this.currentPosition['node']   = domNode;
+		this.currentPosition['offset'] = offset;
+
+		Selection selection = window.getSelection();
+		selection.setPosition(domNode.getRawNode(), offset);
+		positionCursorAtCurrentSelection();
 	}
 
 	onClick(MouseEvent mouseEvent)
 	{
-		positionCursor();
+		positionCursorAtCurrentSelection();
 	}
 
-	positionCursor()
+	positionCursorAtCurrentSelection()
 	{
 		Selection selection = window.getSelection();
 
@@ -83,6 +93,11 @@ class Cursor
 		cursorElement.style.left    = cursorOffsets['x'].toString() + "px";
 		cursorElement.style.top     = cursorOffsets['y'].toString() + "px";
 		cursorElement.style.display = "block";
+
+		this.currentPosition = {
+	       'node':   anchorNode,
+	       'offset': anchorOffset
+		};
 	}
 
 	Map positionCursorForElement(DomNode domNode, int anchorOffset)
@@ -113,19 +128,9 @@ class Cursor
 		// We need this to get the position of the current cursor
 		// Otherwise we would have to do complex tricks I don't wanna do.
 		DomNode span = DomNode.createElement("span");
-		domNode.insertAfter(span);
-
-		String anchorNodeText = domNode.getTextContent();
-		String preText  = anchorNodeText.substring(0, offset);
-		String postText = anchorNodeText.substring(offset);
-
-		domNode.setTextContent(preText);
-
-		// We also need a second text node
-		DomNode textNode = new DomNode(new Text(postText));
-		span.insertAfter(textNode);
 		// Set a none breakable space, so it's not empty
 		span.setTextContent(new String.fromCharCode(160));
+		domNode.insertNode(span, offset);
 
 		Map offsets = span.getOffsets();
 
