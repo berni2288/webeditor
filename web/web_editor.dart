@@ -1,5 +1,4 @@
-import 'dart:html';
-import 'dom_node.dart';
+part of webeditor;
 
 
 class WebEditor {
@@ -8,6 +7,8 @@ class WebEditor {
 	 * Only set when the editable has focus
 	 */
 	DomNode endBreak;
+
+	Cursor cursor;
 
 	/*
 	 * A list of HTML elements that can be removed by the backspace button
@@ -19,13 +20,17 @@ class WebEditor {
 		this.editable = new DomNode(editableElement);
 
 		editableElement
-				..onKeyDown.listen(this.handleOnKeyDown)
-				..onKeyPress.listen(this.handleOnKeyPress)
-				..onFocus.listen(handleOnFocus)
-				..onBlur.listen(handleOnBlur);
+			..onKeyDown.listen(this.handleOnKeyDown)
+			..onKeyPress.listen(this.handleOnKeyPress)
+			..onFocus.listen(handleOnFocus)
+			..onBlur.listen(handleOnBlur);
+
+		// Create a new cursor
+		this.cursor = new Cursor(editable);
 	}
 
-	handleOnKeyDown(KeyboardEvent keyboardEvent) {
+	handleOnKeyDown(KeyboardEvent keyboardEvent)
+	{
 		DomNode domNode = new DomNode(keyboardEvent.target);
 		int keyCode = keyboardEvent.keyCode;
 
@@ -88,8 +93,8 @@ class WebEditor {
 		DomNode lastTextNode = getLastTextNode(domNode, true);
 
 		if (lastTextNode == null) {
-			Text textNode = new Text(text);
-			domNode.insertBefore(new DomNode(textNode), endBreak);
+			DomNode textNode = new DomNode(new Text(text));
+			endBreak.insertBefore(textNode);
 		} else {
 			String newText = lastTextNode.getTextContent() + text;
 			lastTextNode.setTextContent(newText);
@@ -155,6 +160,7 @@ class WebEditor {
 				}
 			}
 
+			// Go to the previous node in the DOM hierarchy
 			node = treeWalker.previousNode();
 			currentChildDomNode = node == null ? null : new DomNode(node);
 
@@ -163,14 +169,6 @@ class WebEditor {
 				domNodeToDelete = null;
 			}
 		}
-	}
-
-	String getLastCharacter(String string) {
-		if (string.length == 0) {
-			return "";
-		}
-
-		return string[string.length - 1];
 	}
 
 	bool isCharacterHtmlWhiteSpace(String character) {
@@ -266,7 +264,7 @@ class WebEditor {
 		DomNode newBreak = new DomNode(new Element.br());
 		// Insert a new line break in the editable
 		// domNode before our internal endBreak
-		domNode.insertBefore(newBreak, endBreak);
+		endBreak.insertBefore(newBreak);
 	}
 
 	handleNoneFunctionalButton(DomNode domNode, charCode) {

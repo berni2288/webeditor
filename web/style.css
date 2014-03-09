@@ -6,3 +6,13 @@
 #editable:focus {
 	background-color: #FFEEEE;
 }
+
+.webeditor-cursor {
+	width:            1px;
+	height:           20px;
+	background-color: #000000;
+
+	position:         absolute;
+	top:              10px;
+	left:             359px;
+}

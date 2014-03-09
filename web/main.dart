@@ -1,4 +1,12 @@
-import 'web_editor.dart';
+library webeditor;
+
+
+import 'dart:html';
+
+
+part 'dom_node.dart';
+part 'cursor.dart';
+part 'web_editor.dart';
 
 
 WebEditor webEditor;

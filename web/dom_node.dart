@@ -1,12 +1,9 @@
-
-import 'dart:html';
-
+part of webeditor;
 
 
 class DomNode
 {
 	Node rawNode;
-
 
 
 	DomNode(Node node)
@@ -26,7 +23,35 @@ class DomNode
 
 	DomNode getLastChild()
 	{
-		return new DomNode(this.getRawNode().lastChild);
+		Node rawLastChild = this.getRawNode().lastChild;
+
+		if (rawLastChild == null) {
+			return null;
+		}
+
+		return new DomNode(rawLastChild);
+	}
+
+	DomNode getPrevious()
+	{
+		Node rawPreviousNode = this.getRawNode().previousNode;
+
+		if (rawPreviousNode == null) {
+			return null;
+		}
+
+		return new DomNode(rawPreviousNode);
+	}
+
+	DomNode getNext()
+	{
+		Node rawNextNode = this.getRawNode().nextNode;
+
+		if (rawNextNode == null) {
+			return null;
+		}
+
+		return new DomNode(rawNextNode);
 	}
 
 	String getNodeName()
@@ -91,9 +116,31 @@ class DomNode
 		this.getRawNode().append(domNode.getRawNode());
 	}
 
-	insertBefore(DomNode newChild, DomNode refChild)
+	/*
+	 * Inserts nodeToInsert before this.
+	 * this must have a parent.
+	 */
+	insertBefore(DomNode nodeToInsert)
 	{
-		this.getRawNode().insertBefore(newChild.getRawNode(), refChild.getRawNode());
+		this.getParentNode().getRawNode().insertBefore(
+				nodeToInsert.getRawNode(), this.getRawNode());
+	}
+
+	/*
+	 * Inserts nodeToInsert after this
+	 * this must have a parent.
+	 */
+	insertAfter(DomNode nodeToInsert)
+	{
+		DomNode nextNode = this.getNext();
+		Node referenceNode;
+
+		if (nextNode != null) {
+			referenceNode = nextNode.getRawNode();
+		}
+
+		this.getParentNode().getRawNode().insertBefore(
+        				nodeToInsert.getRawNode(), referenceNode);
 	}
 
 	DomNode getParentNode()
@@ -110,5 +157,42 @@ class DomNode
 	bool isEqualTo(DomNode domNode)
 	{
 		return this.getRawNode() == domNode.getRawNode();
+	}
+
+    Map getOffsets() {
+		final docElem = document.documentElement;
+		final box     = (this.getRawNode() as Element).getBoundingClientRect();
+
+		return {
+			'x': box.left + window.pageXOffset - docElem.clientLeft,
+			'y': box.top  + window.pageYOffset - docElem.clientTop
+		};
+    }
+
+    void normalizeText() {
+    	var currentText = null;
+
+    	Node rawNode = this.getRawNode();
+    	for (var i = rawNode.nodes.length - 1; i >= 0; --i) {
+    		var child = rawNode.nodes[i];
+    		if (child is Text) {
+    			if (currentText == null) {
+    				currentText = child;
+    			} else {
+    				currentText.text = child.text + currentText.text;
+    				child.remove();
+    			}
+    		} else {
+    			currentText = null;
+    		}
+    		if (child is Element) {
+    			new DomNode(child).normalizeText();
+    		}
+    	}
+    }
+
+	static DomNode createElement(String tagName)
+	{
+		return new DomNode(document.createElement(tagName));
 	}
 }
