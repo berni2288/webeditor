@@ -1,8 +1,4 @@
 
-#editable {
-	font-family:     'Trebuchet MS', Helvetica, sans-serif;
-	font-size:        16px;
-}
 #editable:focus {
 	background-color: #FFEEEE;
 }
@@ -15,4 +11,20 @@
 	position:         absolute;
 	top:              10px;
 	left:             359px;
+}
+div, p, h1 {
+	font-family:      Lato, sans-serif;
+}
+div, p {
+	font-size:        20px;
+}
+table, td, th {
+	border:           1px solid #000000;
+	border-collapse:  collapse;
+}
+th, td {
+	padding:          6px;
+}
+::selection {
+	background:       #FFFF00;
 }

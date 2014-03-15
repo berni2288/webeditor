@@ -9,7 +9,8 @@ class Cursor
 	/*
 	 * Contains the properties 'node' and 'offset', can be null.
 	 */
-	Map currentPosition;
+	DomNode currentDomNode;
+	int currentTextOffset;
 
 
 	Cursor(DomNode editable)
@@ -39,19 +40,24 @@ class Cursor
 		return this.cursorDomNode;
 	}
 
-	Map getPosition()
+	getCurrentSelectedDomNode()
 	{
-		return this.currentPosition;
+		return this.currentDomNode;
+	}
+
+	getCurrentTextOffset()
+	{
+		return this.currentTextOffset;
 	}
 
 	setPosition(DomNode domNode, int offset)
 	{
-		if (this.currentPosition == null) {
-			this.currentPosition = new Map();
+		if (domNode.getType() != Node.TEXT_NODE) {
+			return;
 		}
 
-		this.currentPosition['node']   = domNode;
-		this.currentPosition['offset'] = offset;
+		this.currentDomNode = domNode;
+		this.currentTextOffset = offset;
 
 		Selection selection = window.getSelection();
 		selection.setPosition(domNode.getRawNode(), offset);
@@ -68,36 +74,37 @@ class Cursor
 		Selection selection = window.getSelection();
 
 		if (!selection.isCollapsed) {
-			print("Error: is not collapsed");
+			return;
+		}
+
+		if (selection.anchorNode == null) {
 			return;
 		}
 
 		DomNode anchorNode = new DomNode(selection.anchorNode);
 		int anchorOffset = selection.anchorOffset;
 
-		Map cursorOffsets;
+		Map offsets;
 		if (anchorNode.getType() == Node.ELEMENT_NODE) {
-			cursorOffsets = positionCursorForElement(anchorNode, anchorOffset);
+			offsets = positionCursorForElement(anchorNode, anchorOffset);
 		} else if (anchorNode.getType() == Node.TEXT_NODE) {
-			print("Clicked into textnode \"" + anchorNode.getTextContent()
+			print("Clicked into textnode \"" + anchorNode.getText()
 					+ "\" at character #" + anchorOffset.toString());
-			cursorOffsets = positionCursorForTextNode(anchorNode, anchorOffset);
+			offsets = positionCursorForTextNode(anchorNode, anchorOffset);
 		}
 
-		if (cursorOffsets == null) {
+		if (offsets == null) {
 			return;
 		}
 
 		Element cursorElement = this.cursorDomNode.getRawNode();
-
-		cursorElement.style.left    = cursorOffsets['x'].toString() + "px";
-		cursorElement.style.top     = cursorOffsets['y'].toString() + "px";
+		cursorElement.style.left    = offsets['x'].toString() + "px";
+		cursorElement.style.top     = offsets['y'].toString() + "px";
 		cursorElement.style.display = "block";
 
-		this.currentPosition = {
-	       'node':   anchorNode,
-	       'offset': anchorOffset
-		};
+		// We can't use this.setPosition here, because that would cause an infinite loop...
+		this.currentDomNode    = anchorNode;
+		this.currentTextOffset = anchorOffset;
 	}
 
 	Map positionCursorForElement(DomNode domNode, int anchorOffset)
@@ -111,13 +118,14 @@ class Cursor
 			return null;
 		}
 
-		return positionCursorForTextNode(lastTextNode, lastTextNode.getTextContent().length);
+		return positionCursorForTextNode(lastTextNode, lastTextNode.getText().length);
 	}
 
 	Map positionCursorForTextNode(DomNode domNode, int anchorOffset)
 	{
 		Map offsets = determineCharacterPosition(domNode, anchorOffset);
-		print("Offset: x: " + offsets['x'].toString() + " y: " + offsets['y'].toString());
+		print("Offset: x: " + offsets['x'].toString()
+				+ " y: " + offsets['y'].toString());
 
 		return offsets;
 	}
@@ -129,13 +137,16 @@ class Cursor
 		// Otherwise we would have to do complex tricks I don't wanna do.
 		DomNode span = DomNode.createElement("span");
 		// Set a none breakable space, so it's not empty
-		span.setTextContent(new String.fromCharCode(160));
-		domNode.insertNode(span, offset);
+		span.setText(new String.fromCharCode(160));
+		DomNode secondTextNode = domNode.insertNode(span, offset);
 
-		Map offsets = span.getOffsets();
+		Map offsets = span.getDocumentOffsets();
 
 		span.remove();
-		domNode.normalizeText();
+
+		// Normalize the text nodes again (= merge them)
+		domNode.setText(domNode.getText() + secondTextNode.getText());
+		secondTextNode.remove();
 
 		return offsets;
 	}

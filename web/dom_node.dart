@@ -69,12 +69,12 @@ class DomNode
 		(this.getRawNode() as Element).innerHtml = value;
 	}
 
-	String getTextContent()
+	String getText()
 	{
 		return this.getRawNode().text;
 	}
 
-	setTextContent(value)
+	setText(value)
 	{
 		this.getRawNode().text = value;
 	}
@@ -130,11 +130,11 @@ class DomNode
     {
 		this.insertAfter(domNodeToInsert);
 
-		String text = this.getTextContent();
+		String text = this.getText();
 		String preText  = text.substring(0, offset);
 		String postText = text.substring(offset);
 
-		this.setTextContent(preText);
+		this.setText(preText);
 
 		// We also need a second text node
 		DomNode secondTextNode = new DomNode(new Text(postText));
@@ -145,11 +145,11 @@ class DomNode
 
 	insertText(String text, int offset)
 	{
-		String currentText = this.getTextContent();
+		String currentText = this.getText();
 		String preText  = currentText.substring(0, offset);
 		String postText = currentText.substring(offset);
 
-		this.setTextContent(preText + text + postText);
+		this.setText(preText + text + postText);
 	}
 
 	/*
@@ -185,7 +185,7 @@ class DomNode
 		return this.getRawNode() == domNode.getRawNode();
 	}
 
-    Map getOffsets() {
+    Map getDocumentOffsets() {
 		final docElem = document.documentElement;
 		final box     = (this.getRawNode() as Element).getBoundingClientRect();
 
@@ -195,26 +195,44 @@ class DomNode
 		};
     }
 
-    void normalizeText() {
-    	var currentText = null;
+    /*
+     * Warnings: This will probably remove existing textnodes.
+     * Be sure to not rely on any reference to text nodes afterwards.
+     */
+    normalizeText() {
+    	Node rawNode            = this.getRawNode();
+    	DomNode currentTextNode = null;
 
-    	Node rawNode = this.getRawNode();
-    	for (var i = rawNode.nodes.length - 1; i >= 0; --i) {
-    		var child = rawNode.nodes[i];
-    		if (child is Text) {
-    			if (currentText == null) {
-    				currentText = child;
+    	List<DomNode> childNodes = this.getChildNodes();
+    	for (int i = childNodes.length - 1; i >= 0; --i) {
+    		DomNode childNode = childNodes[i];
+    		if (childNode.getType() == Node.TEXT_NODE) {
+    			if (currentTextNode == null) {
+    				currentTextNode = childNode;
     			} else {
-    				currentText.text = child.text + currentText.text;
-    				child.remove();
+    				currentTextNode.setText(childNode.getText() + currentTextNode.getText());
+    				childNode.remove();
     			}
     		} else {
-    			currentText = null;
+    			currentTextNode = null;
     		}
-    		if (child is Element) {
-    			new DomNode(child).normalizeText();
+
+    		if (currentTextNode != null && currentTextNode.getType() == Node.ELEMENT_NODE) {
+    			childNode.normalizeText();
     		}
     	}
+    }
+
+    int getChildIndex()
+    {
+		List<DomNode> childNodes = this.getParentNode().getChildNodes();
+		for (int i = 0; i < childNodes.length; i++) {
+			if (childNodes[i].isEqualTo(this)) {
+				return i;
+			}
+		}
+
+		return -1;
     }
 
 	static DomNode createElement(String tagName)

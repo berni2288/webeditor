@@ -17,7 +17,7 @@ class WebEditor {
 
 	WebEditor(String selector) {
 		Element editableElement = querySelector(selector);
-		this.editable = new DomNode(editableElement);
+		this.editable           = new DomNode(editableElement);
 
 		editableElement
 			..onKeyDown.listen(this.handleOnKeyDown)
@@ -52,7 +52,7 @@ class WebEditor {
 
 	handleOnKeyPress(KeyboardEvent keyboardEvent) {
 		DomNode domNode = new DomNode(keyboardEvent.target);
-		int keyCode = keyboardEvent.keyCode;
+		int keyCode     = keyboardEvent.keyCode;
 
 		print("handleOnKeyPress: " + keyCode.toString());
 
@@ -73,8 +73,8 @@ class WebEditor {
 			return;
 		}
 
-		DomNode domNode = new DomNode(focusEvent.target);
-		this.endBreak = new DomNode(new Element.br());
+		DomNode domNode    = new DomNode(focusEvent.target);
+		this.endBreak      = new DomNode(new Element.br());
 		Element rawElement = (this.endBreak.getRawNode() as Element);
 		rawElement.dataset["webeditor-endbreak"] = "true";
 		rawElement.dataset["webeditor-internal"] = "true";
@@ -90,9 +90,10 @@ class WebEditor {
 	}
 
 	insertTextAtCursor(String text) {
-		Map cursorPosition = this.cursor.getPosition();
+		DomNode textNode = cursor.getCurrentSelectedDomNode();
+		int offset       = cursor.getCurrentTextOffset();
 
-		if (cursorPosition == null) {
+		if (textNode == null) {
 			return;
 //			DomNode lastTextNode = getLastTextNode(this.editable, true);
 //
@@ -111,9 +112,6 @@ class WebEditor {
 //			}
 		}
 
-		DomNode textNode = cursorPosition['node'];
-		int offset       = cursorPosition['offset'];
-
 		// Insert text into text node
 		textNode.insertText(text, offset);
 
@@ -123,33 +121,42 @@ class WebEditor {
 
 	insertDomNodeAtCursor(DomNode domNode)
 	{
-		Map cursorPosition = this.cursor.getPosition();
+		DomNode textNode = this.cursor.getCurrentSelectedDomNode();
+		int offset       = this.cursor.getCurrentTextOffset();
 
-		DomNode textNode = cursorPosition['node'];
-		int offset       = cursorPosition['offset'];
-
-		String currentText = textNode.getTextContent();
+		String currentText = textNode.getText();
 		String preText  = currentText.substring(0, offset);
 		String postText = currentText.substring(offset);
 
-		textNode.setTextContent(preText + currentText + postText);
+		textNode.setText(preText + currentText + postText);
 
 		// Move the cursor forward
 		cursor.setPosition(textNode, offset + currentText.length);
 	}
 
-	deleteText(DomNode domNode) {
+	deleteTextAtCursor()
+	{
+		DomNode textNode = this.cursor.getCurrentSelectedDomNode();
+		int offset       = this.cursor.getCurrentTextOffset();
+
+		if (textNode == null) {
+			return;
+		}
+
 		// Create a Treewalker that filters walks elements and text
-		TreeWalker treeWalker = new TreeWalker(domNode.getRawNode(),
+		TreeWalker treeWalker = new TreeWalker(this.editable.getRawNode(),
 				NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
 
-		Node node                   = treeWalker.lastChild();
+		Node node                   = treeWalker.currentNode = textNode.getRawNode();
 		DomNode currentChildDomNode = node == null ? null : new DomNode(node);
         		DomNode domNodeToDelete;
 
 		bool visibleCharacterOrElementDeleted = false;
 		bool noMoreThingsToDelete             = false;
 		bool whiteSpaceDeleted                = false;
+
+		int currentOffset;
+		Map currentCursorPosition;
 
 		while (!visibleCharacterOrElementDeleted && currentChildDomNode != null) {
 			if (!isInternalDomNode(currentChildDomNode)) {
@@ -159,10 +166,15 @@ class WebEditor {
 						visibleCharacterOrElementDeleted = true;
 					}
 				} else if (currentChildDomNode.getType() == Node.TEXT_NODE) {
-					String textContent = currentChildDomNode.getTextContent();
+					String textContent = currentChildDomNode.getText();
 					int textContentLength = textContent.length;
+					int textContentOffset = textContentLength;
 
-					for (int i = textContentLength - 1; i >= 0; i--) {
+					if (currentChildDomNode.isEqualTo(textNode)) {
+						textContentOffset = offset;
+					}
+
+					for (int i = textContentOffset - 1; i >= 0; i--) {
 						if (isCharacterHtmlWhiteSpace(textContent[i])) {
 							whiteSpaceDeleted = true;
 						} else {
@@ -191,19 +203,35 @@ class WebEditor {
 						domNodeToDelete = currentChildDomNode;
 					} else {
 						// Cut the TEXT_NDOE
-						textContent = textContent.substring(0, textContentLength);
-						currentChildDomNode.setTextContent(textContent);
+						String originalText    = textContent;
+						int offsetWhereToCut   = textContentOffset
+								- (originalText.length - textContentLength);
+
+						String pretextContent  = originalText.substring(0, offsetWhereToCut);
+						String textContentPost = originalText.substring(textContentOffset);
+						currentChildDomNode.setText(pretextContent + textContentPost);
+
+						// Position the cursor
+						//cursor.setPosition(currentChildDomNode, offsetWhereToCut);
+						currentOffset = offsetWhereToCut;
+						cursor.setPosition(currentChildDomNode, currentOffset);
 					}
 				}
 			}
 
 			// Go to the previous node in the DOM hierarchy
 			node = treeWalker.previousNode();
-			currentChildDomNode = node == null ? null : new DomNode(node);
+			currentChildDomNode = (node == null ? null : new DomNode(node));
 
 			if (domNodeToDelete != null) {
 				domNodeToDelete.remove();
 				domNodeToDelete = null;
+
+				// Position the cursor
+//				if (currentChildDomNode != null) {
+//					cursor.setPosition(currentChildDomNode,
+//							currentChildDomNode.getTextContent().length);
+//				}
 			}
 		}
 	}
@@ -222,7 +250,7 @@ class WebEditor {
 				break;
 			}
 
-			if (parentNode.getTextContent().isEmpty) {
+			if (parentNode.getText().isEmpty) {
 				highestEmptyParentNode = parentNode;
 			} else {
 				break;
@@ -294,16 +322,25 @@ class WebEditor {
 	}
 
 	handleBackSpace(DomNode domNode) {
-		deleteText(domNode);
+		deleteTextAtCursor();
 	}
 
 	handleEnter(DomNode domNode) {
-		Map cursorPosition = this.cursor.getPosition();
-		DomNode textNode = cursorPosition['node'];
-		int offset       = cursorPosition['offset'];
+		DomNode textNode = this.cursor.getCurrentSelectedDomNode();
+		int offset       = this.cursor.getCurrentTextOffset();
 
 		DomNode newBreak = new DomNode(new Element.br());
 		textNode.insertNode(newBreak, offset);
+
+		DomNode nodeAfterBreak = newBreak.getNext();
+		if (nodeAfterBreak.getType() != Node.TEXT_NODE) {
+			// Where there is no text node after the new break, create a new one
+			nodeAfterBreak = new DomNode(new Text(""));
+			newBreak.insertAfter(nodeAfterBreak);
+		}
+
+		// Position the cursor in the text node
+		cursor.setPosition(nodeAfterBreak, 0);
 	}
 
 	handleNoneFunctionalButton(DomNode domNode, charCode) {
