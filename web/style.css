@@ -1,12 +1,10 @@
 
 #editable:focus {
-	background-color: #FFEEEE;
+	background-color: #F5F5FF;
 }
 
 .webeditor-cursor {
 	width:            1px;
-	height:           20px;
-	background-color: #000000;
 
 	position:         absolute;
 	top:              10px;
@@ -17,6 +15,9 @@ div, p, h1 {
 }
 div, p {
 	font-size:        20px;
+}
+table {
+	empty-cells:      show;
 }
 table, td, th {
 	border:           1px solid #000000;

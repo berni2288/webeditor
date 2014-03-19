@@ -235,6 +235,16 @@ class DomNode
 		return -1;
     }
 
+    bool contains(DomNode domNode)
+    {
+		return this.getRawNode().contains(domNode.getRawNode());
+    }
+
+    bool isContainedBy(DomNode domNode)
+    {
+    	return domNode.getRawNode().contains(this.getRawNode());
+    }
+
 	static DomNode createElement(String tagName)
 	{
 		return new DomNode(document.createElement(tagName));

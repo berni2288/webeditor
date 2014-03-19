@@ -17,7 +17,7 @@ class Cursor
 	{
 		this.editable = editable;
 		Element rawElement = (editable.getRawNode() as Element);
-		rawElement.onClick.listen(onClick);
+		document.onSelectionChange.listen(onSelectionChange);
 
 		createElement();
 	}
@@ -52,10 +52,6 @@ class Cursor
 
 	setPosition(DomNode domNode, int offset)
 	{
-		if (domNode.getType() != Node.TEXT_NODE) {
-			return;
-		}
-
 		this.currentDomNode = domNode;
 		this.currentTextOffset = offset;
 
@@ -64,7 +60,7 @@ class Cursor
 		positionCursorAtCurrentSelection();
 	}
 
-	onClick(MouseEvent mouseEvent)
+	onSelectionChange(Event event)
 	{
 		positionCursorAtCurrentSelection();
 	}
@@ -77,12 +73,18 @@ class Cursor
 			return;
 		}
 
+		// Don't continue if the selection goes over multiple characters/elements
 		if (selection.anchorNode == null) {
 			return;
 		}
 
 		DomNode anchorNode = new DomNode(selection.anchorNode);
 		int anchorOffset = selection.anchorOffset;
+
+		// Check if we actually care about this
+		if (!anchorNode.isContainedBy(this.editable)) {
+			return;
+		}
 
 		Map offsets;
 		if (anchorNode.getType() == Node.ELEMENT_NODE) {
@@ -97,28 +99,48 @@ class Cursor
 			return;
 		}
 
-		Element cursorElement = this.cursorDomNode.getRawNode();
-		cursorElement.style.left    = offsets['x'].toString() + "px";
-		cursorElement.style.top     = offsets['y'].toString() + "px";
-		cursorElement.style.display = "block";
+		positionAndstyleTheCursor(offsets, anchorNode);
 
 		// We can't use this.setPosition here, because that would cause an infinite loop...
 		this.currentDomNode    = anchorNode;
 		this.currentTextOffset = anchorOffset;
 	}
 
-	Map positionCursorForElement(DomNode domNode, int anchorOffset)
+	positionAndstyleTheCursor(Map offsets, DomNode styleDomNode)
 	{
-		TreeWalker treeWalker = new TreeWalker(domNode.getRawNode(),
-        				NodeFilter.SHOW_TEXT);
+		Element cursorElement = this.cursorDomNode.getRawNode();
+		cursorElement.style.left    = offsets['x'].toString() + "px";
+		cursorElement.style.top     = (offsets['y'] + 3).toString() + "px";
+		cursorElement.style.display = "block";
 
-		DomNode lastTextNode = new DomNode(treeWalker.lastChild());
-
-		if (lastTextNode == null) {
-			return null;
+		// Set the font-size and the color for our cursor
+		CssStyleDeclaration computedStyle = null;
+		if (styleDomNode.getType() == Node.TEXT_NODE) {
+			computedStyle = (styleDomNode.getParentNode().getRawNode() as Element).getComputedStyle();
+			cursorElement.style.height = computedStyle.getPropertyValue("font-size");
+		} else {
+			computedStyle = (styleDomNode.getRawNode() as Element).getComputedStyle();
+			cursorElement.style.height = computedStyle.getPropertyValue("height");
 		}
 
-		return positionCursorForTextNode(lastTextNode, lastTextNode.getText().length);
+		cursorElement.style.backgroundColor = computedStyle.getPropertyValue("color");
+	}
+
+	Map positionCursorForElement(DomNode domNode, int anchorOffset)
+	{
+		Range range = window.getSelection().getRangeAt(0);
+		List<Rectangle<dynamic>> rectangleList = (domNode.getRawNode() as Element).getClientRects();
+
+		if (rectangleList.length > 0) {
+			Rectangle rectangle = rectangleList[0];
+
+			return {
+				'x': rectangle.left,
+				'y': rectangle.top
+			};
+		}
+
+		return null;
 	}
 
 	Map positionCursorForTextNode(DomNode domNode, int anchorOffset)
@@ -132,22 +154,13 @@ class Cursor
 
 	Map determineCharacterPosition(DomNode domNode, int offset)
 	{
-		// Create a new empty span
-		// We need this to get the position of the current cursor
-		// Otherwise we would have to do complex tricks I don't wanna do.
-		DomNode span = DomNode.createElement("span");
-		// Set a none breakable space, so it's not empty
-		span.setText(new String.fromCharCode(160));
-		DomNode secondTextNode = domNode.insertNode(span, offset);
+		Range range = window.getSelection().getRangeAt(0);
+		List<Rectangle<dynamic>> rectangleList = range.getClientRects();
+		Rectangle rectangle = rectangleList[0];
 
-		Map offsets = span.getDocumentOffsets();
-
-		span.remove();
-
-		// Normalize the text nodes again (= merge them)
-		domNode.setText(domNode.getText() + secondTextNode.getText());
-		secondTextNode.remove();
-
-		return offsets;
+		return {
+			'x': rectangle.left,
+			'y': rectangle.top
+		};
 	}
 }

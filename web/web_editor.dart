@@ -136,10 +136,10 @@ class WebEditor {
 
 	deleteTextAtCursor()
 	{
-		DomNode textNode = this.cursor.getCurrentSelectedDomNode();
-		int offset       = this.cursor.getCurrentTextOffset();
+		DomNode selectedDomNode = this.cursor.getCurrentSelectedDomNode();
+		int offset              = this.cursor.getCurrentTextOffset();
 
-		if (textNode == null) {
+		if (selectedDomNode == null) {
 			return;
 		}
 
@@ -147,9 +147,9 @@ class WebEditor {
 		TreeWalker treeWalker = new TreeWalker(this.editable.getRawNode(),
 				NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
 
-		Node node                   = treeWalker.currentNode = textNode.getRawNode();
+		Node node                   = treeWalker.currentNode = selectedDomNode.getRawNode();
 		DomNode currentChildDomNode = node == null ? null : new DomNode(node);
-        		DomNode domNodeToDelete;
+        DomNode domNodeToDelete     = null;
 
 		bool visibleCharacterOrElementDeleted = false;
 		bool noMoreThingsToDelete             = false;
@@ -161,8 +161,16 @@ class WebEditor {
 		while (!visibleCharacterOrElementDeleted && currentChildDomNode != null) {
 			if (!isInternalDomNode(currentChildDomNode)) {
 				if (currentChildDomNode.getType() == Node.ELEMENT_NODE) {
-					if (deletableElements.contains(currentChildDomNode.getNodeName())) {
-						currentChildDomNode.remove();
+					if (offset == 0) {
+						domNodeToDelete = currentChildDomNode;
+					} else {
+						List<DomNode> childNodes = currentChildDomNode.getChildNodes();
+						if (offset <= childNodes.length) {
+							domNodeToDelete = childNodes[offset];
+						}
+					}
+
+					if (domNodeToDelete != null) {
 						visibleCharacterOrElementDeleted = true;
 					}
 				} else if (currentChildDomNode.getType() == Node.TEXT_NODE) {
@@ -170,7 +178,7 @@ class WebEditor {
 					int textContentLength = textContent.length;
 					int textContentOffset = textContentLength;
 
-					if (currentChildDomNode.isEqualTo(textNode)) {
+					if (currentChildDomNode.isEqualTo(selectedDomNode)) {
 						textContentOffset = offset;
 					}
 
@@ -196,42 +204,34 @@ class WebEditor {
 						}
 					}
 
-					// If the string would be empty, just deleted the TEXT_NODE
-					if (textContentLength == 0) {
-						// We can't delete it now because then the relation to the previous
-						// node (treewalker) would become invalid, so we delete it afterwards.
-						domNodeToDelete = currentChildDomNode;
-					} else {
-						// Cut the TEXT_NDOE
-						String originalText    = textContent;
-						int offsetWhereToCut   = textContentOffset
-								- (originalText.length - textContentLength);
+					String originalText    = textContent;
+					int offsetWhereToCut   = textContentOffset
+							- (originalText.length - textContentLength);
 
-						String pretextContent  = originalText.substring(0, offsetWhereToCut);
-						String textContentPost = originalText.substring(textContentOffset);
-						currentChildDomNode.setText(pretextContent + textContentPost);
+					String pretextContent  = originalText.substring(0, offsetWhereToCut);
+					String textContentPost = originalText.substring(textContentOffset);
+					currentChildDomNode.setText(pretextContent + textContentPost);
 
-						// Position the cursor
-						//cursor.setPosition(currentChildDomNode, offsetWhereToCut);
-						currentOffset = offsetWhereToCut;
-						cursor.setPosition(currentChildDomNode, currentOffset);
-					}
+					currentOffset = offsetWhereToCut;
+					cursor.setPosition(currentChildDomNode, currentOffset);
 				}
 			}
 
 			// Go to the previous node in the DOM hierarchy
 			node = treeWalker.previousNode();
 			currentChildDomNode = (node == null ? null : new DomNode(node));
+		}
 
-			if (domNodeToDelete != null) {
-				domNodeToDelete.remove();
-				domNodeToDelete = null;
+		if (domNodeToDelete != null) {
+			domNodeToDelete.remove();
 
-				// Position the cursor
-//				if (currentChildDomNode != null) {
-//					cursor.setPosition(currentChildDomNode,
-//							currentChildDomNode.getTextContent().length);
-//				}
+			if (currentChildDomNode != null) {
+				if (currentChildDomNode.getType() == Node.TEXT_NODE) {
+					cursor.setPosition(currentChildDomNode, currentChildDomNode.getText().length);
+				} else {
+					cursor.setPosition(currentChildDomNode.getParentNode(),
+							currentChildDomNode.getChildIndex());
+				}
 			}
 		}
 	}
