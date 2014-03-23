@@ -8,7 +8,8 @@ class WebEditor {
 	 */
 	DomNode endBreak;
 
-	Cursor cursor;
+	Cursor  cursor;
+	Toolbar toolbar;
 
 	/*
 	 * A list of HTML elements that can be removed by the backspace button
@@ -26,7 +27,8 @@ class WebEditor {
 			..onBlur.listen(handleOnBlur);
 
 		// Create a new cursor
-		this.cursor = new Cursor(editable);
+		this.cursor  = new Cursor(editable);
+		this.toolbar = new Toolbar();
 	}
 
 	handleOnKeyDown(KeyboardEvent keyboardEvent)

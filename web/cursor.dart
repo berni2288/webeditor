@@ -86,12 +86,16 @@ class Cursor
 			return;
 		}
 
+		print("Clicked into node \"" + anchorNode.getText().substring(0,
+				anchorNode.getText().length < 32 ? anchorNode.getText().length : 32)
+        					+ "\" | offset #" + anchorOffset.toString()
+        					+ " | node-type: " + anchorNode.getType().toString()
+        					+ " | element: <" + anchorNode.getNodeName() + ">");
+
 		Map offsets;
 		if (anchorNode.getType() == Node.ELEMENT_NODE) {
 			offsets = positionCursorForElement(anchorNode, anchorOffset);
 		} else if (anchorNode.getType() == Node.TEXT_NODE) {
-			print("Clicked into textnode \"" + anchorNode.getText()
-					+ "\" at character #" + anchorOffset.toString());
 			offsets = positionCursorForTextNode(anchorNode, anchorOffset);
 		}
 
@@ -100,6 +104,9 @@ class Cursor
 		}
 
 		positionAndstyleTheCursor(offsets, anchorNode);
+
+		// Update the cursor display in the toolbar
+		webEditor.toolbar.updateCursorDisplay(anchorNode, anchorOffset);
 
 		// We can't use this.setPosition here, because that would cause an infinite loop...
 		this.currentDomNode    = anchorNode;
@@ -145,11 +152,7 @@ class Cursor
 
 	Map positionCursorForTextNode(DomNode domNode, int anchorOffset)
 	{
-		Map offsets = determineCharacterPosition(domNode, anchorOffset);
-		print("Offset: x: " + offsets['x'].toString()
-				+ " y: " + offsets['y'].toString());
-
-		return offsets;
+		return determineCharacterPosition(domNode, anchorOffset);
 	}
 
 	Map determineCharacterPosition(DomNode domNode, int offset)
@@ -159,8 +162,8 @@ class Cursor
 		Rectangle rectangle = rectangleList[0];
 
 		return {
-			'x': rectangle.left,
-			'y': rectangle.top
+			'x': rectangle.left + window.scrollX,
+			'y': rectangle.top + window.scrollY
 		};
 	}
 }
