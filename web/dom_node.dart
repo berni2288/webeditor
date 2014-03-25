@@ -126,7 +126,7 @@ class DomNode
 				nodeToInsert.getRawNode(), this.getRawNode());
 	}
 
-    DomNode insertNode(DomNode domNodeToInsert, int offset)
+    DomNode insertNodeIntoText(DomNode domNodeToInsert, int offset)
     {
 		this.insertAfter(domNodeToInsert);
 
@@ -243,6 +243,24 @@ class DomNode
     bool isContainedBy(DomNode domNode)
     {
     	return domNode.getRawNode().contains(this.getRawNode());
+    }
+
+    bool containsWhitespaceOnly()
+    {
+    	String text = this.getText();
+    	for (int i=0; i < text.length; i++) {
+    		if (" \t\r\n".indexOf(text[i]) == -1) {
+    			return false;
+    		}
+    	}
+
+    	return true;
+    }
+
+    bool isEmpty()
+    {
+    	List<DomNode> thisChildNodes = this.getChildNodes();
+    	return thisChildNodes.length == 0;
     }
 
 	static DomNode createElement(String tagName)

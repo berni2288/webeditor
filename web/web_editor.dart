@@ -36,20 +36,23 @@ class WebEditor {
 		DomNode domNode = new DomNode(keyboardEvent.target);
 		int keyCode = keyboardEvent.keyCode;
 
-		switch (keyCode) {
-			case KeyCode.BACKSPACE:
-				handleBackSpace(domNode);
-				break;
-			case KeyCode.ENTER:
-				handleEnter(domNode);
-				break;
-			default:
-				// Don't do anything
-				return;
-		}
+		// Key-Function mapping
+		Map<int, Function> keyFunctionMap = {
+        	KeyCode.BACKSPACE: handleKeyBackSpace,
+        	KeyCode.ENTER:     handleKeyEnter,
+        	KeyCode.LEFT:      handleKeyLeft,
+        	KeyCode.UP:        handleKeyUp,
+        	KeyCode.RIGHT:     handleKeyRight,
+        	KeyCode.DOWN:      handleKeyDown
+		};
 
-		// Tell the browser to not handle this button
-		keyboardEvent.preventDefault();
+		// Call the function if registered
+		if (keyFunctionMap.containsKey(keyCode)) {
+			if (keyFunctionMap[keyCode](domNode)) {
+				// Tell the browser to not handle this button
+				keyboardEvent.preventDefault();
+			}
+		}
 	}
 
 	handleOnKeyPress(KeyboardEvent keyboardEvent) {
@@ -63,10 +66,10 @@ class WebEditor {
 			return;
 		}
 
-		handleNoneFunctionalButton(domNode, keyCode);
-
-		// Tell the browser to not handle this button
-		keyboardEvent.preventDefault();
+		if (handleNoneFunctionalKey(domNode, keyCode)) {
+			// Tell the browser to not handle this button
+			keyboardEvent.preventDefault();
+		}
 	}
 
 	handleOnFocus(FocusEvent focusEvent) {
@@ -92,33 +95,38 @@ class WebEditor {
 	}
 
 	insertTextAtCursor(String text) {
-		DomNode textNode = cursor.getCurrentSelectedDomNode();
-		int offset       = cursor.getCurrentTextOffset();
+		String textToInsert = text;
 
-		if (textNode == null) {
+		DomNode domNode = cursor.getCurrentSelectedDomNode();
+		int offset      = cursor.getCurrentTextOffset();
+
+		if (domNode == null) {
 			return;
-//			DomNode lastTextNode = getLastTextNode(this.editable, true);
-//
-//			if (lastTextNode == null) {
-//				DomNode textNode = new DomNode(new Text(text));
-//				endBreak.insertBefore(textNode);
-//
-//				// Position the cursor
-//				cursor.setPosition(textNode, textNode.getTextContent().length);
-//			} else {
-//				String newText = lastTextNode.getTextContent() + text;
-//				lastTextNode.setTextContent(newText);
-//
-//				// Position the cursor
-//				cursor.setPosition(lastTextNode, newText.length);
-//			}
 		}
 
-		// Insert text into text node
-		textNode.insertText(text, offset);
+		DomNode textNode;
+		if (domNode.getType() == Node.ELEMENT_NODE) {
+			textNode = new DomNode(new Text(text));
+			domNode.getChildNodes()[offset -1].insertAfter(textNode);
+			offset = 0;
+		} else {
+			textNode = domNode;
+
+			if (isCharacterHtmlWhiteSpace(text)) {
+    			String textNodeText = textNode.getText();
+
+    			if (textNodeText.length > 0
+    					&& isCharacterHtmlWhiteSpace(textNodeText[offset - 1])) {
+    				textToInsert = new String.fromCharCode(160);
+    			}
+    		}
+
+    		// Insert text into text node
+    		textNode.insertText(textToInsert, offset);
+		}
 
 		// Move the cursor forward
-		cursor.setPosition(textNode, offset + text.length);
+		cursor.setPosition(textNode, offset + textToInsert.length);
 	}
 
 	insertDomNodeAtCursor(DomNode domNode)
@@ -136,13 +144,20 @@ class WebEditor {
 		cursor.setPosition(textNode, offset + currentText.length);
 	}
 
-	deleteTextAtCursor()
+	deletePreviousElementOrVisibleLetterAtCursor()
 	{
 		DomNode selectedDomNode = this.cursor.getCurrentSelectedDomNode();
 		int offset              = this.cursor.getCurrentTextOffset();
 
 		if (selectedDomNode == null) {
 			return;
+		}
+
+		if (offset > 0 && selectedDomNode.getType() == Node.ELEMENT_NODE) {
+			// If the offset is > 0, a node inside selectedDomNode was selected
+			List<DomNode> childNodesOfSelectedDomNode = selectedDomNode.getChildNodes();
+			selectedDomNode = childNodesOfSelectedDomNode[offset - 1];
+			offset = 0;
 		}
 
 		// Create a Treewalker that filters walks elements and text
@@ -163,17 +178,23 @@ class WebEditor {
 		while (!visibleCharacterOrElementDeleted && currentChildDomNode != null) {
 			if (!isInternalDomNode(currentChildDomNode)) {
 				if (currentChildDomNode.getType() == Node.ELEMENT_NODE) {
-					if (offset == 0) {
-						domNodeToDelete = currentChildDomNode;
-					} else {
-						List<DomNode> childNodes = currentChildDomNode.getChildNodes();
-						if (offset <= childNodes.length) {
-							domNodeToDelete = childNodes[offset];
-						}
-					}
+					// Don't delete not empty text containers
+					if (!HtmlElementRules.isSupportTextEditingElementContainer(
+	                                                          currentChildDomNode.getNodeName())
+							|| isTextContainerEmpty(currentChildDomNode)) {
 
-					if (domNodeToDelete != null) {
-						visibleCharacterOrElementDeleted = true;
+						if (offset == 0) {
+    						domNodeToDelete = currentChildDomNode;
+    					} else {
+    						List<DomNode> childNodes = currentChildDomNode.getChildNodes();
+    						if (offset <= childNodes.length) {
+    							domNodeToDelete = childNodes[offset];
+    						}
+    					}
+
+    					if (domNodeToDelete != null) {
+    						visibleCharacterOrElementDeleted = true;
+    					}
 					}
 				} else if (currentChildDomNode.getType() == Node.TEXT_NODE) {
 					String textContent = currentChildDomNode.getText();
@@ -264,7 +285,7 @@ class WebEditor {
 		}
 
 		// Removing (dettaching) this node will also automatically detach all
-		// its children automatically. The Dart or Javascript runtime will
+		// its children automatically. The Dart runtime will
 		// delete unreferenced objects during garbage collection.
 		highestEmptyParentNode.remove();
 	}
@@ -323,16 +344,40 @@ class WebEditor {
 				"true";
 	}
 
-	handleBackSpace(DomNode domNode) {
-		deleteTextAtCursor();
+	bool isTextContainerEmpty(DomNode domNode)
+	{
+		List<DomNode> childNodesOfDomNode = domNode.getChildNodes();
+		for (int i = 0; i < childNodesOfDomNode.length; i++) {
+			DomNode child = childNodesOfDomNode[i];
+
+			if (child.getType() == Node.TEXT_NODE) {
+				if (!child.containsWhitespaceOnly()) {
+					return false;
+				}
+			} else if (child.getType() == Node.ELEMENT_NODE
+					&& HtmlElementRules.isSupportTextEditingElementContainer(child.getNodeName())) {
+				if (!isTextContainerEmpty(child)) {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
-	handleEnter(DomNode domNode) {
+	handleKeyBackSpace(DomNode domNode) {
+		deletePreviousElementOrVisibleLetterAtCursor();
+		return true;
+	}
+
+	handleKeyEnter(DomNode domNode) {
 		DomNode textNode = this.cursor.getCurrentSelectedDomNode();
 		int offset       = this.cursor.getCurrentTextOffset();
 
 		DomNode newBreak = new DomNode(new Element.br());
-		textNode.insertNode(newBreak, offset);
+		textNode.insertNodeIntoText(newBreak, offset);
 
 		DomNode nodeAfterBreak = newBreak.getNext();
 		if (nodeAfterBreak.getType() != Node.TEXT_NODE) {
@@ -343,12 +388,35 @@ class WebEditor {
 
 		// Position the cursor in the text node
 		cursor.setPosition(nodeAfterBreak, 0);
+
+		return true;
 	}
 
-	handleNoneFunctionalButton(DomNode domNode, charCode) {
+	handleKeyLeft(DomNode domNode)
+	{
+		return true;
+	}
+
+	handleKeyUp(DomNode domNode)
+	{
+		return true;
+	}
+
+	handleKeyRight(DomNode domNode)
+	{
+		return true;
+	}
+
+	handleKeyDown(DomNode domNode)
+	{
+		return true;
+	}
+
+	handleNoneFunctionalKey(DomNode domNode, charCode) {
 		String char = new String.fromCharCode(charCode);
 		if (char.isNotEmpty) {
 			insertTextAtCursor(char);
+			return true;
 		}
 	}
 }

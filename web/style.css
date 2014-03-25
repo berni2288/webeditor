@@ -2,6 +2,9 @@
 body {
 	margin-top:       34px;
 }
+#editable {
+	cursor:           text;
+}
 #editable:focus {
 	background-color: #F5F5FF;
 }
