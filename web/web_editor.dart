@@ -24,7 +24,8 @@ class WebEditor {
 			..onKeyDown.listen(this.handleOnKeyDown)
 			..onKeyPress.listen(this.handleOnKeyPress)
 			..onFocus.listen(handleOnFocus)
-			..onBlur.listen(handleOnBlur);
+			..onBlur.listen(handleOnBlur)
+			..onPaste.listen(handleOnPaste);
 
 		// Create a new cursor
 		this.cursor  = new Cursor(editable);
@@ -92,6 +93,11 @@ class WebEditor {
 			this.endBreak.remove();
 			this.endBreak = null;
 		}
+	}
+
+	handleOnPaste(Event event) {
+		String clipboardText = event.clipboardData.getData("text/plain");
+		insertTextAtCursor(clipboardText);
 	}
 
 	insertTextAtCursor(String text) {
