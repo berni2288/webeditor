@@ -233,12 +233,14 @@ class Cursor
 		DomNode currentNode = new DomNode(treeWalker.previousNode());
 		while (currentNode != null) {
 			if (!webEditor.isInternalDomNode(domNode)) {
-				if (currentNode.getType() == Node.TEXT_NODE && !currentNode.containsWhitespaceOnly()) {
+				if (currentNode.getType() == Node.TEXT_NODE
+						&& !currentNode.containsWhitespaceOnly()) {
 					return currentNode;
 				}
 
 				if (currentNode.getType() == Node.ELEMENT_NODE
-						&& !HtmlElementRules.isSupportTextEditingElementContainer(currentNode.getNodeName())) {
+						&& !HtmlRules.isSupportedTextEditingContainerOrElement(
+								currentNode.getNodeName())) {
 					return currentNode;
 				}
 			}

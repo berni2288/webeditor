@@ -164,9 +164,9 @@ class WebEditor {
 		TreeWalker treeWalker = new TreeWalker(this.editable.getRawNode(),
 				NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
 
-		Node node                   = treeWalker.currentNode = selectedDomNode.getRawNode();
-		DomNode currentChildDomNode = node == null ? null : new DomNode(node);
-        DomNode domNodeToDelete     = null;
+		treeWalker.currentNode                = selectedDomNode.getRawNode();
+		DomNode currentChildDomNode           = selectedDomNode;
+        DomNode domNodeToDelete               = null;
 
 		bool visibleCharacterOrElementDeleted = false;
 		bool noMoreThingsToDelete             = false;
@@ -179,7 +179,7 @@ class WebEditor {
 			if (!isInternalDomNode(currentChildDomNode)) {
 				if (currentChildDomNode.getType() == Node.ELEMENT_NODE) {
 					// Don't delete not empty text containers
-					if (!HtmlElementRules.isSupportTextEditingElementContainer(
+					if (!HtmlRules.isSupportedTextEditingContainerOrElement(
 	                                                          currentChildDomNode.getNodeName())
 							|| isTextContainerEmpty(currentChildDomNode)) {
 
@@ -241,7 +241,7 @@ class WebEditor {
 			}
 
 			// Go to the previous node in the DOM hierarchy
-			node = treeWalker.previousNode();
+			Node node = treeWalker.previousNode();
 			currentChildDomNode = (node == null ? null : new DomNode(node));
 		}
 
@@ -355,7 +355,7 @@ class WebEditor {
 					return false;
 				}
 			} else if (child.getType() == Node.ELEMENT_NODE
-					&& HtmlElementRules.isSupportTextEditingElementContainer(child.getNodeName())) {
+					&& HtmlRules.isSupportedTextEditingContainerOrElement(child.getNodeName())) {
 				if (!isTextContainerEmpty(child)) {
 					return false;
 				}
